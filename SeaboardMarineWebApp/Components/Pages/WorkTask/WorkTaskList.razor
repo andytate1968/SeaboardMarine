@@ -1,0 +1,147 @@
+﻿@page "/worktask"
+@rendermode InteractiveServer
+@inject ITaskRepository _taskRepository
+@inject IJSRuntime _jsRuntime
+@inject ITaskService _taskService
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedLocalStorage ProtectedLocalStore
+@inject NavigationManager _navigationManager
+<ConfirmDialog @ref="dialog" />
+<div class="row mt-4">
+    <div class="col-6">
+        <h4 class="card-title text-primary">Tasks</h4>
+    </div>
+    <div class="col-4 offset-2">
+        <a href="worktask/create" class="btn btn-primary form-control">Add New Task </a>
+    </div>
+    <div class="col-12 p-3">
+        @if (ExistingTasks.Any()) 
+        {
+            <Grid TItem="TaskDto" class="table table-hover table-bordered table-striped" DataProvider="TasksDataProvider" AllowSorting="true" AllowFiltering="true" Responsive="true">
+                <GridColumn TItem="TaskDto" HeaderText="Id" PropertyName="Id" SortKeySelector="item => item.Id">
+                    @context.Id
+                </GridColumn>
+                <GridColumn TItem="TaskDto" HeaderText="Title" Sortable="true" PropertyName="Title" SortKeySelector="item => item.Title">
+                    @context.Title
+                </GridColumn>                
+                <GridColumn TItem="TaskDto" HeaderText="Description" Sortable="true" PropertyName="Description" SortKeySelector="item => item.Description">
+                    @context.Description
+                </GridColumn>
+                <GridColumn TItem="TaskDto" HeaderText="Tags" Sortable="true" PropertyName="Tags" SortKeySelector="item => item.ListOfTags">
+                    @context.ListOfTags
+                </GridColumn>
+                <GridColumn TItem="TaskDto" HeaderText="DueDate" Sortable="true" PropertyName="DueDate" SortKeySelector="item => item.DueDate">
+                    @context.DueDate
+                </GridColumn>
+                <GridColumn TItem="TaskDto" HeaderText="IsCompleted" Sortable="true" PropertyName="IsCompleted" SortKeySelector="item => item.IsCompleted">                    
+                    @context.IsCompleted
+                </GridColumn>
+                <GridColumn TItem="TaskDto" PropertyName="Id" Sortable="false">
+                    <NavLink href="@($"worktask/edit/{context.Id}")" class="btn-primary btn">Edit</NavLink>
+                    <button class="btn btn-danger" @onclick="()=>ShowConfirmationAsync(context.Id)">Delete</button>                     
+                </GridColumn>
+            </Grid>
+        
+        
+            
+        }
+        else
+        {
+            if (IsLoading)
+            {
+                <div class="text-center">
+                    <img src="/images/loading.gif">
+                </div>
+            }
+            else
+            {
+
+                <p>No tasks found.</p>
+            }
+        }
+    </div>
+</div>
+@code {
+    private ConfirmDialog dialog;
+    private IEnumerable<TaskDto> ExistingTasks { get; set; } = new List<TaskDto>();
+    public bool IsLoading { get; set; }
+    private int DeleteTaskId { get; set; } = 0;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadTasks();
+        }
+    }
+
+    private async Task<GridDataProviderResult<TaskDto>> TasksDataProvider(GridDataProviderRequest<TaskDto> request)
+    {
+        return await Task.FromResult(request.ApplyTo(ExistingTasks));
+    }
+
+
+
+    private async Task LoadTasks()
+    {
+        IsLoading = true;
+        StateHasChanged();
+        var result = await ProtectedLocalStore.GetAsync<bool>("useApi");
+        if (result.Success && result.Value)
+        {
+            ExistingTasks = await _taskService.GetAll();
+        }
+        else
+        {
+            ExistingTasks = await _taskRepository.GetAll();
+        }
+
+        foreach (var task in ExistingTasks)
+        {
+            if (task.TaskTags != null && task.TaskTags.Count > 0)
+            {
+                task.ListOfTags = GetListOfTags(task.TaskTags);
+            }
+            else
+            {
+                task.ListOfTags = "";
+            }
+        }
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private string GetListOfTags(List<TaskTagDto> tags)
+    {
+        var result = "";
+        foreach (var tag in tags)
+        {
+            result = result + " | " + tag.TagName;
+        }
+        return result.Substring(2);
+    }
+
+    private async Task ShowConfirmationAsync(int id)
+    {
+        var confirmation = await dialog.ShowAsync(
+            title: "Are you sure you want to delete this task?",
+            message1: "This will delete the record. Once deleted can not be rolled back.",
+            message2: "Do you want to proceed?");
+
+        if (confirmation)
+        {
+            IsLoading = true;
+            var result = await ProtectedLocalStore.GetAsync<bool>("useApi");
+            if (result.Success && result.Value)
+            {
+                await _taskService.Delete(id);
+            }
+            else
+            {
+                await _taskRepository.Delete(id);
+            }
+            _navigationManager.NavigateTo("worktask", true, true);
+        }        
+    }
+ }

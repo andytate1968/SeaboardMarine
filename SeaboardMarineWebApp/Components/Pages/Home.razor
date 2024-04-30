@@ -1,0 +1,40 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedLocalStorage ProtectedLocalStore
+
+<PageTitle>Home</PageTitle>
+
+<h1>Task Manager</h1>
+
+This is an application that allows you to manage tasks. It can either use APIs for the data access or direct access via the repository
+<div>
+    <Switch @bind-Value="useApi" Label="Should we use API calls?" @onclick="SwitchChanged" />
+</div>
+@code {
+
+    public bool useApi;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var result = await ProtectedLocalStore.GetAsync<bool>("useApi");
+            if (result.Success)
+            {
+                useApi = result.Value;
+            }
+            else
+            {
+                useApi = false;
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task SwitchChanged()
+    {
+        useApi = !useApi;
+        await ProtectedLocalStore.SetAsync("useApi", useApi);
+    }
+}

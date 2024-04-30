@@ -1,0 +1,31 @@
+﻿@page "/counter"
+@using System.ComponentModel.DataAnnotations;
+@inject ITaskRepository _taskRepository
+<PageTitle>Counter</PageTitle>
+
+<EditForm Model="Model" OnValidSubmit="Submit" FormName="Starship1">
+    <DataAnnotationsValidator />
+    <div>
+        <label>
+            Identifier:
+            <InputText @bind-Value="Model!.Title" />
+        </label>
+    </div>
+    <div>
+        <button type="submit">Submit</button>
+    </div>
+</EditForm>
+
+@code {
+    [SupplyParameterFromForm]
+    public TaskDto? Model { get; set; }
+
+    protected override void OnInitialized() => Model ??= new();
+
+    private void Submit()
+    {
+       string va = Model!.Title;
+    }
+
+    
+}
